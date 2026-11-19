@@ -1,0 +1,57 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Shefbuilkmailer</title>
+<style>
+:root{--o:#B9560B;--n:#023C6A}*{box-sizing:border-box}
+body{margin:0;font:15px/1.5 system-ui,sans-serif;background:#f6f4f1;color:#1d1d1d}
+header{background:var(--n);color:#fff;padding:14px 20px;font-weight:700}
+main{max-width:920px;margin:auto;padding:16px}
+nav{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+button{background:#fff;border:1px solid #ddd;padding:8px 14px;border-radius:8px;cursor:pointer;font:inherit}
+button.on,button.p{background:var(--o);color:#fff;border-color:var(--o)}
+.card{background:#fff;border-radius:12px;padding:16px;margin-bottom:14px;box-shadow:0 1px 3px #0001}
+input,textarea,select{width:100%;padding:9px;border:1px solid #ccc;border-radius:8px;font:inherit;margin:4px 0 10px}
+textarea{min-height:140px}table{width:100%;border-collapse:collapse;font-size:13px}
+td,th{padding:6px;border-bottom:1px solid #eee;text-align:left}.wrap{overflow-x:auto;max-height:360px;overflow-y:auto}
+.row{display:flex;gap:10px;flex-wrap:wrap}.row>*{flex:1;min-width:140px}
+#log{max-height:240px;overflow:auto;font-size:13px;white-space:pre-wrap}small{color:#666}
+</style></head><body>
+<header>Shefbuilkmailer</header>
+<main id="app"></main>
+<script>
+const $=s=>document.querySelector(s),L=(k,d)=>{try{return JSON.parse(localStorage.getItem(k))||d}catch(e){return d}},S=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}};
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+let C=L('sm_c',[]),P=L('sm_p',{limit:300,gap:5,footer:'Sheftechofficial, Osogbo, Nigeria\nNot interested? Just reply STOP and I won\'t email you again.'}),
+T=L('sm_t',[
+{d:0,s:'Quick idea for {{company}}',b:'Hi {{name}},\n\nI took a look at {{company}} and spotted a couple of small things that could be costing you sales. Happy to send a short free audit if you want it.\n\nWant me to send it over?\n\nShefiu'},
+{d:3,s:'Re: Quick idea for {{company}}',b:'Hi {{name}},\n\nJust following up. One quick tip: a clearer product page and a faster checkout often lift conversions without spending more on ads. I can show you exactly where to start.\n\nShefiu'},
+{d:7,s:'Should I close your file, {{name}}?',b:'Hi {{name}},\n\nI don\'t want to crowd your inbox, so this is my last note. If improving {{company}} is on your list, just reply and we\'ll talk. If not, no worries at all.\n\nShefiu'}]);
+let pw=sessionStorage.getItem('sm_pw')||'',tab='contacts',stop=false;
+const save=()=>{S('sm_c',C);S('sm_p',P);S('sm_t',T)};
+const fill=(t,c)=>t.replace(/{{name}}/g,c.name||'there').replace(/{{company}}/g,c.company||'your store').replace(/{{email}}/g,c.email);
+const today=()=>new Date().toDateString();
+const sentToday=()=>C.reduce((n,c)=>n+c.sent.filter(x=>new Date(x.ts).toDateString()===today()).length,0);
+const elig=st=>C.filter(c=>c.status==='new'&&!c.sent.some(x=>x.step===st)&&(st===1||(p=>p&&Date.now()-p.ts>=T[st-1].d*864e5)(c.sent.find(x=>x.step===st-1))));
+const mk=(c,st,extra)=>{const body=fill(T[st-1].b,c)+'\n\n--\n'+P.footer;return{to:c.email,subject:fill(T[st-1].s,c),text:body,html:'<div style="font:15px/1.6 Arial,sans-serif">'+esc(body).replace(/\n/g,'<br>')+'</div>'}};
+async function api(body){const r=await fetch('/api/send',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:pw,...body})});const j=await r.json().catch(()=>({error:'Server error'}));if(!r.ok)throw new Error(j.error||'Failed');return j}
+function log(m){const l=$('#log');if(l){l.textContent=new Date().toLocaleTimeString()+'  '+m+'\n'+l.textContent}}
+function login(){$('#app').innerHTML='<div class="card"><h3>Login</h3><input id="pw" type="password" placeholder="Your dashboard password"><button class="p" onclick="doLogin()">Enter</button><p id="err" style="color:#b00"></p></div>'}
+async function doLogin(){pw=$('#pw').value;try{await api({ping:1});sessionStorage.setItem('sm_pw',pw);render()}catch(e){$('#err').textContent=e.message}}
+function render(){
+const tabs=['contacts','campaign','send'].map(t=>`<button class="${tab===t?'on':''}" onclick="tab='${t}';render()">${t[0].toUpperCase()+t.slice(1)}</button>`).join('');
+let h=`<nav>${tabs}<button onclick="sessionStorage.removeItem('sm_pw');pw='';login()">Log out</button></nav>`;
+if(tab==='contacts'){
+h+=`<div class="card"><h3>Add contacts (${C.length})</h3><small>One per line: email, name, company</small><textarea id="imp" placeholder="john@store.com, John, John's Store"></textarea><button class="p" onclick="imp()">Import</button> <button onclick="exp()">Export backup CSV</button></div>
+<div class="card wrap"><table><tr><th>Email</th><th>Name</th><th>Company</th><th>Steps sent</th><th>Status</th><th></th></tr>${C.map((c,i)=>`<tr><td>${esc(c.email)}</td><td>${esc(c.name)}</td><td>${esc(c.company)}</td><td>${c.sent.map(x=>x.step).join(',')||'-'}</td><td><select onchange="C[${i}].status=this.value;save()" style="margin:0"><option ${c.status==='new'?'selected':''} value="new">Active</option><option ${c.status==='replied'?'selected':''} value="replied">Replied</option><option ${c.status==='unsub'?'selected':''} value="unsub">Unsubscribed</option></select></td><td><button onclick="C.splice(${i},1);save();render()">x</button></td></tr>`).join('')}</table></div>`}
+if(tab==='campaign'){h+=T.map((t,i)=>`<div class="card"><h3>Step ${i+1}</h3><div class="row"><div><small>Send ${i?'days after previous step':'immediately'}</small><input type="number" ${i?'':'disabled'} value="${t.d}" onchange="T[${i}].d=+this.value;save()"></div><div><small>Subject</small><input value="${esc(t.s)}" onchange="T[${i}].s=this.value;save()"></div></div><small>Body. Use {{name}}, {{company}}, {{email}}</small><textarea onchange="T[${i}].b=this.value;save()">${esc(t.b)}</textarea></div>`).join('')+`<div class="card"><small>Footer added to every email (keep a way to opt out)</small><textarea onchange="P.footer=this.value;save()">${esc(P.footer)}</textarea></div>`}
+if(tab==='send'){const st=[1,2,3].map(s=>`<option value="${s}">Step ${s} (${elig(s).length} ready)</option>`).join('');
+h+=`<div class="card"><h3>Send</h3><div class="row"><div><small>Which step</small><select id="st">${st}</select></div><div><small>Daily limit (Gmail is safest at 300 or less)</small><input id="lim" type="number" value="${P.limit}" onchange="P.limit=+this.value;save()"></div><div><small>Seconds between batches</small><input id="gap" type="number" value="${P.gap}" onchange="P.gap=+this.value;save()"></div></div><p>Sent today: <b>${sentToday()}</b> of ${P.limit}</p><button class="p" onclick="run()">Start sending</button> <button onclick="stop=true">Stop</button><hr><small>Send a test to yourself first</small><div class="row"><input id="te" placeholder="your@email.com"><button onclick="test()">Send test</button></div></div><div class="card"><b>Activity</b><div id="log"></div></div>`}
+$('#app').innerHTML=h}
+function imp(){const v=$('#imp').value.split('\n');let n=0;v.forEach(l=>{const[p,q,r]=l.split(',').map(x=>x.trim());if(p&&/^\S+@\S+\.\S+$/.test(p)&&!C.some(c=>c.email.toLowerCase()===p.toLowerCase())){C.push({email:p,name:q||'',company:r||'',status:'new',sent:[]});n++}});save();render();alert(n+' contacts added')}
+function exp(){const b=new Blob([['email,name,company,status,steps'].concat(C.map(c=>[c.email,c.name,c.company,c.status,c.sent.map(x=>x.step).join('|')].join(','))).join('\n')],{type:'text/csv'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='contacts.csv';a.click()}
+async function test(){const to=$('#te').value;if(!to)return;try{const r=await api({emails:[mk({email:to,name:'Test',company:'Test Store',sent:[]},+$('#st').value)]});log(r.results[0].ok?'Test sent to '+to:'Test failed: '+r.results[0].error)}catch(e){log(e.message)}}
+async function run(){stop=false;const st=+$('#st').value;let q=elig(st).slice(0,Math.max(0,P.limit-sentToday()));if(!q.length){log('Nobody ready for this step, or daily limit reached.');return}
+log('Starting: '+q.length+' emails');
+for(let i=0;i<q.length&&!stop;i+=3){const b=q.slice(i,i+3);try{const r=await api({emails:b.map(c=>mk(c,st))});r.results.forEach((x,j)=>{if(x.ok){b[j].sent.push({step:st,ts:Date.now()});log('Sent to '+x.to)}else log('FAILED '+x.to+': '+x.error)});save()}catch(e){log('Stopped: '+e.message);break}
+await new Promise(r=>setTimeout(r,P.gap*1000))}
+log(stop?'Stopped.':'Done.')}
+pw?render():login();
+</script></body></html>
